@@ -6,13 +6,15 @@
 #include <QThread>
 #include <QMessageBox>
 #include <QLabel>
-#include <QLineEdit>
-#include <QIntValidator>
 #include <QTimeEdit>
 #include <QPushButton>
 
 int main(int argc, char **argv)
 {
+    constexpr quint64 SecondsInMinute = 60;
+    constexpr quint64 SecondsInHour = SecondsInMinute * 60;
+    constexpr quint64 SecondsInDay = SecondsInHour * 24;
+
     QApplication app(argc, argv);
     QMainWindow window;
     QWidget centralWidget;
@@ -123,33 +125,29 @@ int main(int argc, char **argv)
         }
     };
 
-    QVBoxLayout secondsLayout;
-    QLabel secondsLabel("Enter seconds:");
-    QLineEdit seconds("60");
-    QIntValidator intValidator(0, 60 * 60 * 24);
-    seconds.setValidator(&intValidator);
-    QPushButton secondsButton("Schedule shutdown by seconds");
+    QVBoxLayout afterTimeLayout;
+    QLabel afterTimeLabel("Will shutdown after:");
+    QTimeEdit afterTimeEdit(QTime(2, 0, 0));
+    QPushButton afterTimeButton("Schedule a shutdown after a specific time");
     auto secondsAction = [&]()
     {
-        auto secs = seconds.text();
-        secs.remove(' ');
-        secs.remove(QChar(0x00A0));
-        executeShutdown(secs.toULongLong());
-    };
-    QObject::connect(&secondsButton, &QPushButton::released, secondsAction);
-
-    QVBoxLayout clockLayout;
-    QLabel clockLabel("Choose time:");
-    QTimeEdit clock;
-    QPushButton clockButton("Schedule shutdown by time");
-    auto clockAction = [&]()
-    {
-        auto secs = QTime::currentTime().secsTo(clock.time());
-        if (secs < 0)
-            secs += 60 * 60 * 24;
+        quint64 secs = afterTimeEdit.time().hour() * SecondsInHour + afterTimeEdit.time().minute() * SecondsInMinute;
         executeShutdown(secs);
     };
-    QObject::connect(&clockButton, &QPushButton::released, clockAction);
+    QObject::connect(&afterTimeButton, &QPushButton::released, secondsAction);
+
+    QVBoxLayout forTimeLayout;
+    QLabel forTimeLabel("Will shutdown at:");
+    QTimeEdit forTimeEdit;
+    QPushButton forTimeButton("Schedule a shutdown for a specific time");
+    auto clockAction = [&]()
+    {
+        auto secs = QTime::currentTime().secsTo(forTimeEdit.time());
+        if (secs < 0)
+            secs += SecondsInDay;
+        executeShutdown(secs);
+    };
+    QObject::connect(&forTimeButton, &QPushButton::released, clockAction);
 
     window.setFixedSize(600, 120);
     window.setWindowFlags(Qt::Window | Qt::MSWindowsFixedSizeDialogHint);
@@ -159,18 +157,18 @@ int main(int argc, char **argv)
 
     mainLayout.addLayout(&methodLayout);
 
-    methodLayout.addLayout(&secondsLayout, 1);
-    methodLayout.addLayout(&clockLayout, 1);
+    methodLayout.addLayout(&afterTimeLayout, 1);
+    methodLayout.addLayout(&forTimeLayout, 1);
 
-    secondsLayout.addWidget(&secondsLabel);
-    secondsLabel.setAlignment(Qt::AlignCenter | Qt::AlignBottom);
-    secondsLayout.addWidget(&seconds);
-    secondsLayout.addWidget(&secondsButton);
+    afterTimeLayout.addWidget(&afterTimeLabel);
+    afterTimeLabel.setAlignment(Qt::AlignCenter | Qt::AlignBottom);
+    afterTimeLayout.addWidget(&afterTimeEdit);
+    afterTimeLayout.addWidget(&afterTimeButton);
 
-    clockLayout.addWidget(&clockLabel);
-    clockLabel.setAlignment(Qt::AlignCenter | Qt::AlignBottom);
-    clockLayout.addWidget(&clock);
-    clockLayout.addWidget(&clockButton);
+    forTimeLayout.addWidget(&forTimeLabel);
+    forTimeLabel.setAlignment(Qt::AlignCenter | Qt::AlignBottom);
+    forTimeLayout.addWidget(&forTimeEdit);
+    forTimeLayout.addWidget(&forTimeButton);
 
     mainLayout.addWidget(&abortButton);
 
